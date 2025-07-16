@@ -3,7 +3,6 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 # Secret Key
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-fallback-key")
 
@@ -14,6 +13,8 @@ DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 # CORS & CSRF
+CORS_ALLOW_ALL_ORIGINS = True
+
 # CSRF_TRUSTED_ORIGINS = os.getenv(
 #     "CSRF_TRUSTED_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000"
 # ).split(",")
@@ -33,14 +34,14 @@ INSTALLED_APPS = [
     "music.apps.MusicConfig",
     # Third-party
     "rest_framework",
-    # "corsheaders",
+    "corsheaders",
 ]
 
 # Middleware
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    # "corsheaders.middleware.CorsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
