@@ -242,7 +242,6 @@
     let apiTimer = null;
     const SESSION_REFRESH_INTERVAL = 4 * 60 * 1000; // 4 minutes
 
-    // Saved volume or default value
     const savedVolume = localStorage.getItem('volume') || 1;
     volumeSlider.value = savedVolume;
     audio.volume = savedVolume;
@@ -266,18 +265,6 @@
         });
     }
 
-    function parseExtXDateRange(tagValue) {
-        const metadata = {};
-        const parts = tagValue.split(/,(?=[A-Z\-]+=)/);
-        parts.forEach((part) => {
-            const [key, val] = part.split('=');
-            if (key && val) {
-                metadata[key.trim()] = val.trim().replace(/^"|"$/g, '');
-            }
-        });
-        return metadata;
-    }
-
     function fetchSongInfoOnce(retryDelay = 5000) {
         fetch(`/api/?genre=${genre}`)
             .then((res) => {
@@ -291,7 +278,6 @@
                 }
                 loadStream(data.stream_url);
 
-                // ✅ بعد از موفقیت API، هر ۴ دقیقه یک بار چک کن
                 if (!apiTimer) {
                     apiTimer = setInterval(fetchSongInfoOnce, SESSION_REFRESH_INTERVAL);
                 }
@@ -299,7 +285,6 @@
             .catch((err) => {
                 console.warn('❌ API Fetch failed, retrying in 5 seconds...', err);
                 showNotification('Error fetching song info. Retrying...', retryDelay);
-                // 🔁 دوباره تلاش کن بعد از delay
                 setTimeout(() => fetchSongInfoOnce(retryDelay), retryDelay);
             });
     }
@@ -313,77 +298,50 @@
             hls = null;
         }
 
-        if (Hls.isSupported()) {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+        if (Hls.isSupported() && !isIOS) {
+            // ✅ Non-iOS: Use HLS.js
             hls = new Hls();
             hls.attachMedia(audio);
             hls.on(Hls.Events.MEDIA_ATTACHED, () => {
                 hls.loadSource(streamUrl);
-                audio.play().then(() => {
-                    playPauseIcon.className = 'fas fa-pause';
-                }).catch(() => {
-                    console.log('Autoplay not possible');
-                    playPauseIcon.className = 'fas fa-play';
-                });
+                tryPlay();
             });
-
-            hls.on(Hls.Events.FRAG_CHANGED, (event, data) => {
-                if (!data.frag || !data.frag.tagList) return;
-                let song = '', artist = '', cover = '';
-                for (const tag of data.frag.tagList) {
-                    if (tag[0] === 'EXT-X-DATERANGE') {
-                        const meta = parseExtXDateRange(tag[1]);
-                        song = meta['X-TITLE'] || '';
-                        artist = meta['X-ARTIST'] || '';
-                        cover = meta['X-COVER-IMAGE-URL'] || albumArt.src;
-                        break;
-                    }
-                }
-                if (song && artist) {
-                    const isNew = song !== songTitle.textContent || artist !== artistName.textContent;
-                    if (isNew) updateUI(song, artist, cover);
-                }
-            });
-
             hls.on(Hls.Events.ERROR, (event, data) => {
                 console.warn('HLS error:', data);
                 if (data.fatal) {
-                    showNotification('Stream error, trying to reconnect...');
-                    hls.destroy();
-                    hls = null;
-                    setTimeout(() => {
-                        loadStream(currentStreamUrl);
-                    }, 2000);
+                    showNotification('Stream error, reconnecting...');
+                    setTimeout(() => loadStream(currentStreamUrl), 2000);
                 }
             });
-        } else {
+        } else if (audio.canPlayType('application/vnd.apple.mpegurl') || isIOS || isSafari) {
+            // ✅ iOS/Safari: Native HLS
             audio.src = streamUrl;
             audio.load();
-            audio.play().then(() => {
-                playPauseIcon.className = 'fas fa-pause';
-            }).catch(() => {
-                console.log('Autoplay not possible');
-                playPauseIcon.className = 'fas fa-play';
-            });
+            tryPlay();
+        } else {
+            // ✅ Fallback: Direct stream
+            audio.src = streamUrl;
+            audio.load();
+            tryPlay();
         }
     }
 
-    audio.addEventListener('stalled', () => {
-        console.log('Audio stalled, reconnecting...');
-        showNotification('Buffering...');
-        loadStream(currentStreamUrl);
-    });
-
-    audio.addEventListener('error', () => {
-        console.log('Audio error, reconnecting...');
-        showNotification('Audio error, trying to reconnect...');
-        loadStream(currentStreamUrl);
-    });
+    function tryPlay() {
+        audio.play().then(() => {
+            playPauseIcon.className = 'fas fa-pause';
+        }).catch(err => {
+            console.warn('Autoplay blocked. Waiting for user interaction.', err);
+            playPauseIcon.className = 'fas fa-play';
+            showNotification('Tap play to start');
+        });
+    }
 
     playPauseBtn.addEventListener('click', () => {
         if (audio.paused) {
-            audio.play().then(() => {
-                playPauseIcon.className = 'fas fa-pause';
-            }).catch(() => showNotification('Play not possible'));
+            tryPlay();
         } else {
             audio.pause();
             playPauseIcon.className = 'fas fa-play';
@@ -395,14 +353,25 @@
         localStorage.setItem('volume', volumeSlider.value);
     });
 
+    audio.addEventListener('stalled', () => {
+        console.log('Audio stalled. Reconnecting...');
+        showNotification('Buffering...');
+        loadStream(currentStreamUrl);
+    });
+
+    audio.addEventListener('error', () => {
+        console.log('Audio error. Reconnecting...');
+        showNotification('Audio error, retrying...');
+        loadStream(currentStreamUrl);
+    });
+
+    // 🪄 Allow autoplay after user gesture
+    document.addEventListener('touchstart', () => {
+        if (audio.paused) tryPlay();
+    }, {once: true});
+
     window.addEventListener('load', () => {
         fetchSongInfoOnce();
-        audio.play().then(() => {
-            playPauseIcon.className = 'fas fa-pause';
-        }).catch(() => {
-            console.log('Autoplay not possible');
-            playPauseIcon.className = 'fas fa-play';
-        });
     });
 </script>
 
