@@ -242,6 +242,7 @@
     let apiTimer = null;
     const SESSION_REFRESH_INTERVAL = 4 * 60 * 1000; // 4 minutes
 
+    // Saved volume or default value
     const savedVolume = localStorage.getItem('volume') || 1;
     volumeSlider.value = savedVolume;
     audio.volume = savedVolume;
@@ -277,15 +278,28 @@
         return metadata;
     }
 
-    function tryPlay(auto = false) {
-        audio.play().then(() => {
-            playPauseIcon.className = 'fas fa-pause';
-            if (auto) console.log('✅ Auto resumed playback');
-        }).catch((err) => {
-            console.warn('⚠️ Play blocked:', err);
-            playPauseIcon.className = 'fas fa-play';
-            if (!auto) showNotification('Tap play to start');
-        });
+    function fetchSongInfoOnce(retryDelay = 5000) {
+        fetch(`/api/?genre=${genre}`)
+            .then((res) => {
+                if (!res.ok) throw new Error('Network response was not ok');
+                return res.json();
+            })
+            .then((data) => {
+                if (data.current && data.current.id !== currentTrackId) {
+                    currentTrackId = data.current.id;
+                    updateUI(data.current.song, data.current.artist, data.current.image600);
+                }
+                loadStream(data.stream_url);
+
+                if (!apiTimer) {
+                    apiTimer = setInterval(fetchSongInfoOnce, SESSION_REFRESH_INTERVAL);
+                }
+            })
+            .catch((err) => {
+                console.warn('❌ API Fetch failed, retrying in 5 seconds...', err);
+                showNotification('Error fetching song info. Retrying...', retryDelay);
+                setTimeout(() => fetchSongInfoOnce(retryDelay), retryDelay);
+            });
     }
 
     function loadStream(streamUrl) {
@@ -307,7 +321,9 @@
             tryPlay(true);
         } else if (Hls.isSupported()) {
             console.log('🎯 Using HLS.js');
-            hls = new Hls({maxBufferLength: 30});
+            hls = new Hls({
+                maxBufferLength: 30, // 🔥 کاهش بافر برای موبایل
+            });
             hls.loadSource(streamUrl);
             hls.attachMedia(audio);
 
@@ -350,29 +366,21 @@
         }
     }
 
-    function fetchSongInfoOnce(retryDelay = 5000) {
-        fetch(`/api/?genre=${genre}`)
-            .then((res) => {
-                if (!res.ok) throw new Error('Network response was not ok');
-                return res.json();
-            })
-            .then((data) => {
-                if (data.current && data.current.id !== currentTrackId) {
-                    currentTrackId = data.current.id;
-                    updateUI(data.current.song, data.current.artist, data.current.image600);
-                }
-                loadStream(data.stream_url);
-
-                if (!apiTimer) {
-                    apiTimer = setInterval(fetchSongInfoOnce, SESSION_REFRESH_INTERVAL);
-                }
-            })
-            .catch((err) => {
-                console.warn('❌ API Fetch failed, retrying in 5 seconds...', err);
-                showNotification('Error fetching song info. Retrying...');
-                setTimeout(() => fetchSongInfoOnce(retryDelay), retryDelay);
-            });
+    function tryPlay(auto = false) {
+        audio.play().then(() => {
+            playPauseIcon.className = 'fas fa-pause';
+            if (auto) console.log('✅ Auto resumed playback');
+        }).catch((err) => {
+            console.warn('⚠️ Play blocked:', err);
+            playPauseIcon.className = 'fas fa-play';
+            if (!auto) showNotification('Tap play to start');
+        });
     }
+
+    // 🔥 اولین لمس کاربر -> اجازه پخش
+    document.addEventListener('touchstart', () => {
+        if (audio.paused) tryPlay();
+    }, {once: true});
 
     audio.addEventListener('stalled', () => {
         console.log('Audio stalled, reconnecting...');
