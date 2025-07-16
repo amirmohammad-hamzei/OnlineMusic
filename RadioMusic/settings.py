@@ -3,7 +3,6 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-PORT = os.getenv("PORT", "8000")
 
 # Secret Key
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-fallback-key")
