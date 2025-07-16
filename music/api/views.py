@@ -8,7 +8,7 @@ from .stations import STATIONS, STREAMS
 
 class NowPlayingView(APIView):
     def get(self, request, *args, **kwargs):
-        genre = request.query_params.get('genre', 'phonk')
+        genre = request.query_params.get("genre", "phonk")
         api_url = STATIONS.get(genre)
         stream_url = STREAMS.get(genre)
 
@@ -23,14 +23,9 @@ class NowPlayingView(APIView):
             response.raise_for_status()
             data = response.json()
 
-            history = data['result']['history']
+            history = data["result"]["history"]
             current_song = history[0]
 
-            return Response({
-                "current": current_song,
-                "stream_url": stream_url
-            })
+            return Response({"current": current_song, "stream_url": stream_url})
         except Exception as e:
             return Response({"error": str(e)}, status=500)
-
-
