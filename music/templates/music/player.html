@@ -242,6 +242,7 @@
     let apiTimer = null;
     const SESSION_REFRESH_INTERVAL = 4 * 60 * 1000; // 4 minutes
 
+    // Saved volume or default value
     const savedVolume = localStorage.getItem('volume') || 1;
     volumeSlider.value = savedVolume;
     audio.volume = savedVolume;
@@ -263,6 +264,18 @@
         $(playerBg).css('opacity', 0).one('transitionend', () => {
             $(playerBg).css('background-image', `url(${cover})`).css('opacity', 1);
         });
+    }
+
+    function parseExtXDateRange(tagValue) {
+        const metadata = {};
+        const parts = tagValue.split(/,(?=[A-Z\-]+=)/);
+        parts.forEach((part) => {
+            const [key, val] = part.split('=');
+            if (key && val) {
+                metadata[key.trim()] = val.trim().replace(/^"|"$/g, '');
+            }
+        });
+        return metadata;
     }
 
     function fetchSongInfoOnce(retryDelay = 5000) {
@@ -301,43 +314,60 @@
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-        if (Hls.isSupported() && !isIOS) {
-            // ✅ Non-iOS: Use HLS.js
-            hls = new Hls();
-            hls.attachMedia(audio);
-            hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-                hls.loadSource(streamUrl);
-                tryPlay();
+        if ((isIOS || isSafari) && audio.canPlayType('application/vnd.apple.mpegurl')) {
+            console.log('🎯 Native HLS (iOS/Safari)');
+            audio.src = streamUrl;
+            audio.load();
+        } else if (Hls.isSupported()) {
+            console.log('🎯 Using HLS.js');
+            hls = new Hls({
+                maxBufferLength: 30, // 🔥 کاهش بافر برای موبایل
             });
+            hls.loadSource(streamUrl);
+            hls.attachMedia(audio);
+
             hls.on(Hls.Events.ERROR, (event, data) => {
                 console.warn('HLS error:', data);
                 if (data.fatal) {
-                    showNotification('Stream error, reconnecting...');
+                    showNotification('Stream error, trying to reconnect...');
+                    hls.destroy();
+                    hls = null;
                     setTimeout(() => loadStream(currentStreamUrl), 2000);
                 }
             });
-        } else if (audio.canPlayType('application/vnd.apple.mpegurl') || isIOS || isSafari) {
-            // ✅ iOS/Safari: Native HLS
-            audio.src = streamUrl;
-            audio.load();
-            tryPlay();
         } else {
-            // ✅ Fallback: Direct stream
+            console.log('🎯 Fallback direct stream');
             audio.src = streamUrl;
             audio.load();
-            tryPlay();
         }
     }
 
     function tryPlay() {
         audio.play().then(() => {
             playPauseIcon.className = 'fas fa-pause';
-        }).catch(err => {
-            console.warn('Autoplay blocked. Waiting for user interaction.', err);
+        }).catch(() => {
+            console.warn('Autoplay blocked. Waiting for user gesture.');
             playPauseIcon.className = 'fas fa-play';
             showNotification('Tap play to start');
         });
     }
+
+    // 🔥 اولین لمس کاربر -> اجازه پخش
+    document.addEventListener('touchstart', () => {
+        if (audio.paused) tryPlay();
+    }, {once: true});
+
+    audio.addEventListener('stalled', () => {
+        console.log('Audio stalled, reconnecting...');
+        showNotification('Buffering...');
+        loadStream(currentStreamUrl);
+    });
+
+    audio.addEventListener('error', () => {
+        console.log('Audio error, reconnecting...');
+        showNotification('Audio error, trying to reconnect...');
+        loadStream(currentStreamUrl);
+    });
 
     playPauseBtn.addEventListener('click', () => {
         if (audio.paused) {
@@ -353,25 +383,9 @@
         localStorage.setItem('volume', volumeSlider.value);
     });
 
-    audio.addEventListener('stalled', () => {
-        console.log('Audio stalled. Reconnecting...');
-        showNotification('Buffering...');
-        loadStream(currentStreamUrl);
-    });
-
-    audio.addEventListener('error', () => {
-        console.log('Audio error. Reconnecting...');
-        showNotification('Audio error, retrying...');
-        loadStream(currentStreamUrl);
-    });
-
-    // 🪄 Allow autoplay after user gesture
-    document.addEventListener('touchstart', () => {
-        if (audio.paused) tryPlay();
-    }, {once: true});
-
     window.addEventListener('load', () => {
         fetchSongInfoOnce();
+        tryPlay();
     });
 </script>
 
