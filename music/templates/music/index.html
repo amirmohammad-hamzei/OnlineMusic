@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Online Music - Genres</title>
+    <link
+            href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap"
+            rel="stylesheet"
+    />
+    <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+    />
+    <style>
+        /* Reset */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Vazirmatn', sans-serif;
+            background: linear-gradient(135deg, #121212, #1e1e1e);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        header {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #1db954;
+            margin-bottom: 30px;
+            text-align: center;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            user-select: none;
+        }
+
+        .genres-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            width: 100%;
+            max-width: 1100px;
+            padding: 0 10px;
+        }
+
+        .genre-card {
+            background: linear-gradient(145deg, #222222, #181818);
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.7);
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+
+        .genre-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 40px rgba(29, 185, 84, 0.8);
+        }
+
+        .genre-image {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+            flex-shrink: 0;
+        }
+
+        .genre-card:hover .genre-image {
+            transform: scale(1.1);
+        }
+
+        .genre-title {
+            padding: 20px 15px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-align: center;
+            color: #1db954;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 1px;
+            text-transform: capitalize;
+        }
+
+        @media (max-width: 600px) {
+            header {
+                font-size: 1.8rem;
+                margin-bottom: 20px;
+            }
+
+            .genre-title {
+                font-size: 1.2rem;
+                padding: 15px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+<header>Online Music Genres</header>
+
+<main class="genres-grid">
+    <div class="genre-card" onclick="openPlayer('phonk')">
+        <img
+                class="genre-image"
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRO2MFP350LZzncJ5BzmZjoEqt3gbgacA2SbQ&s"
+                alt="Phonk Genre"
+        />
+        <div class="genre-title">Phonk</div>
+    </div>
+
+    <div class="genre-card" onclick="openPlayer('pop')">
+        <img
+                class="genre-image"
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTc6aOOHkdTVougOEO6Y1iaDSk7CQkVX0Inbw&s"
+                alt="Pop Genre"
+        />
+        <div class="genre-title">Pop</div>
+    </div>
+
+    <div class="genre-card" onclick="openPlayer('rock')">
+        <img
+                class="genre-image"
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQgTxGY7ToY-qQunNQo9vDyipBpuFwCzCJYuQ&s"
+                alt="Rock Genre"
+        />
+        <div class="genre-title">Rock</div>
+    </div>
+
+    <div class="genre-card" onclick="openPlayer('techno')">
+        <img
+                class="genre-image"
+                src="https://playeris.com/wp-content/uploads/2025/02/techno-music-blog.jpg"
+                alt="Techno Genre"
+        />
+        <div class="genre-title">Techno</div>
+    </div>
+</main>
+
+<script>
+    function openPlayer(genre) {
+        window.location.href = `player/?genre=${genre}`;
+    }
+</script>
+</body>
+</html>
