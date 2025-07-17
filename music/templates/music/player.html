@@ -218,6 +218,7 @@
 <div id="notification"></div>
 
 <audio id="audio-player" crossorigin="anonymous"></audio>
+
 <script>
     const audio = document.getElementById('audio-player');
     const playPauseBtn = document.getElementById('play-pause');
@@ -238,11 +239,7 @@
 
     let hls = null;
     let currentStreamUrl = null;
-    let currentTrackId = null;
-    let apiTimer = null;
-    const SESSION_REFRESH_INTERVAL = 4 * 60 * 1000; // 4 minutes
-
-    // Saved volume or default value
+    const defaultCover = albumArt.src;
     const savedVolume = localStorage.getItem('volume') || 1;
     volumeSlider.value = savedVolume;
     audio.volume = savedVolume;
@@ -258,11 +255,12 @@
     function updateUI(song, artist, cover) {
         $(songTitle).text(song);
         $(artistName).text(artist);
+        const newCover = cover || defaultCover; // اگر کاور نبود، پیش‌فرض
         $(albumArt).fadeOut(300, function () {
-            $(this).attr('src', cover).fadeIn(300);
+            $(this).attr('src', newCover).fadeIn(300);
         });
         $(playerBg).css('opacity', 0).one('transitionend', () => {
-            $(playerBg).css('background-image', `url(${cover})`).css('opacity', 1);
+            $(playerBg).css('background-image', `url(${newCover})`).css('opacity', 1);
         });
     }
 
@@ -278,27 +276,22 @@
         return metadata;
     }
 
-    function fetchSongInfoOnce(retryDelay = 5000) {
+    function fetchInitialSongInfo() {
         fetch(`/api/?genre=${genre}`)
             .then((res) => {
                 if (!res.ok) throw new Error('Network response was not ok');
                 return res.json();
             })
             .then((data) => {
-                if (data.current && data.current.id !== currentTrackId) {
-                    currentTrackId = data.current.id;
+                if (data.current) {
                     updateUI(data.current.song, data.current.artist, data.current.image600);
                 }
                 loadStream(data.stream_url);
-
-                if (!apiTimer) {
-                    apiTimer = setInterval(fetchSongInfoOnce, SESSION_REFRESH_INTERVAL);
-                }
             })
             .catch((err) => {
-                console.warn('❌ API Fetch failed, retrying in 5 seconds...', err);
-                showNotification('Error fetching song info. Retrying...', retryDelay);
-                setTimeout(() => fetchSongInfoOnce(retryDelay), retryDelay);
+                console.error('❌ Initial API Fetch failed:', err);
+                showNotification('Error fetching song info. Retrying...', 5000);
+                setTimeout(fetchInitialSongInfo, 5000);
             });
     }
 
@@ -322,7 +315,7 @@
         } else if (Hls.isSupported()) {
             console.log('🎯 Using HLS.js');
             hls = new Hls({
-                maxBufferLength: 30, // 🔥 کاهش بافر برای موبایل
+                maxBufferLength: 30,
             });
             hls.loadSource(streamUrl);
             hls.attachMedia(audio);
@@ -349,7 +342,7 @@
                         const meta = parseExtXDateRange(tag[1]);
                         song = meta['X-TITLE'] || '';
                         artist = meta['X-ARTIST'] || '';
-                        cover = meta['X-COVER-IMAGE-URL'] || albumArt.src;
+                        cover = meta['X-COVER-IMAGE-URL'] || '';
                         break;
                     }
                 }
@@ -377,7 +370,6 @@
         });
     }
 
-    // 🔥 اولین لمس کاربر -> اجازه پخش
     document.addEventListener('touchstart', () => {
         if (audio.paused) tryPlay();
     }, {once: true});
@@ -409,10 +401,8 @@
     });
 
     window.addEventListener('load', () => {
-        fetchSongInfoOnce();
-        tryPlay(true);
+        fetchInitialSongInfo();
     });
 </script>
-
 </body>
 </html>
